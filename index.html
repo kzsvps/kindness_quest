@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>邁邁勇者 Kindness Quest</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ══════════════════════════════
+  LOGIN SCREEN
+══════════════════════════════ -->
+<div id="loginScreen">
+  <canvas id="loginCanvas"></canvas>
+  <div id="loginBox">
+    <div class="loginLogo">
+      <div class="loginSword">⚔️</div>
+      <h1>邁邁勇者</h1>
+      <p>Kindness Quest · 公益任務平台</p>
+    </div>
+
+    <div class="authTabs">
+      <button class="authTab active" onclick="switchAuth('login')">登入</button>
+      <button class="authTab" onclick="switchAuth('register')">註冊</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="formLogin" class="authForm">
+      <div class="inputWrap"><span>👤</span><input id="loginUser" type="text" placeholder="帳號" value="user"/></div>
+      <div class="inputWrap"><span>🔒</span><input id="loginPass" type="password" placeholder="密碼" value="quest"/></div>
+      <button class="btnEnter" onclick="doLogin()">⚔️ 勇者入場</button>
+      <div class="roleLinks">
+        <div class="roleLink npoLink" onclick="quickLogin('npo','npo123')">🏛️ 道館主入口</div>
+        <div class="roleLink adminLink" onclick="quickLogin('admin','admin123')">🛡️ 管理員入口</div>
+      </div>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="formRegister" class="authForm hidden">
+      <div class="inputWrap"><span>👤</span><input id="regUser" type="text" placeholder="勇者名稱"/></div>
+      <div class="inputWrap"><span>🔒</span><input id="regPass" type="password" placeholder="密碼"/></div>
+      <div class="inputWrap"><span>🔒</span><input id="regPass2" type="password" placeholder="確認密碼"/></div>
+      <button class="btnEnter" onclick="doRegister()">🌟 建立帳號</button>
+    </div>
+
+    <div class="loginHint">
+      勇者: <b>user / quest</b> &nbsp;|&nbsp; 道館: <b>npo / npo123</b> &nbsp;|&nbsp; 管理員: <b>admin / admin123</b>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════
+  USER APP — GAME MAP
+══════════════════════════════ -->
+<div id="userApp" class="hidden">
+
+  <!-- Full-screen map (warrior is a Leaflet marker at FCU coords) -->
+  <div id="gameMap"></div>
+
+  <!-- HUD Top -->
+  <div id="hudTop">
+    <div class="hudLeft">
+      <div class="hudPortrait">🧙</div>
+      <div class="hudInfo">
+        <div class="hudNameRow">
+          <span id="hudUsername">勇者</span>
+          <span class="hudLv">Lv.18</span>
+        </div>
+        <div class="hudXpRow">
+          <div class="hudXpBar"><div class="hudXpFill" id="hudXpFill" style="width:72%"></div></div>
+          <span class="hudXpText" id="hudXpText">1200 XP</span>
+        </div>
+      </div>
+    </div>
+    <div class="hudRight">
+      <div class="hudCoin">💎 <span id="hudCoin">500</span></div>
+      <button class="hudLogout" onclick="doLogout()" title="登出">⬅</button>
+    </div>
+  </div>
+
+  <!-- GPS status -->
+  <div id="gpsStatus">📡 正在定位...</div>
+
+  <!-- 回到勇者 -->
+  <button class="mapBtn locate" onclick="locateWarrior()" title="回到勇者位置">🎯</button>
+
+  <!-- Bottom Dock -->
+  <nav id="bottomDock">
+    <button class="dockBtn active" data-panel="map" onclick="switchDock('map',this)">
+      <span class="dockIcon">🗺️</span><span class="dockLabel">地圖</span>
+    </button>
+    <button class="dockBtn" data-panel="search" onclick="switchDock('search',this)">
+      <span class="dockIcon">🔍</span><span class="dockLabel">探索</span>
+    </button>
+    <button class="dockBtn" data-panel="quest" onclick="switchDock('quest',this)">
+      <span class="dockIcon">⚔️</span><span class="dockLabel">任務</span>
+    </button>
+    <button class="dockBtn" data-panel="checkin" onclick="switchDock('checkin',this)">
+      <span class="dockIcon">🎯</span><span class="dockLabel">打卡</span>
+    </button>
+    <button class="dockBtn" data-panel="profile" onclick="switchDock('profile',this)">
+      <span class="dockIcon">👤</span><span class="dockLabel">勇者</span>
+    </button>
+  </nav>
+
+  <!-- ── 活動詳細面板（含留言板）── -->
+  <div id="activityPanel" class="bottomSheet">
+    <div class="sheetTopBar">
+      <div class="sheetHandle"></div>
+      <button class="sheetClose" onclick="closeAllPanels()">▼ 收起</button>
+    </div>
+    <div id="activityContent"></div>
+    <div class="actCommentSection">
+      <div class="actCommentTitle">💬 活動紀念留言板</div>
+      <div id="actCommentList"></div>
+      <div class="commentInputRow">
+        <input id="actCommentInput" class="commentInput" placeholder="留下你的參與心得..."/>
+        <button class="btnSend" onclick="sendActComment()">送出</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 探索篩選面板 ── -->
+  <div id="searchPanel" class="bottomSheet">
+    <div class="sheetTopBar">
+      <div class="sheetHandle"></div>
+      <button class="sheetClose" onclick="closeAllPanels()">▼ 收起</button>
+    </div>
+    <div class="sheetTitle">🔍 探索任務</div>
+    <div class="filterGrid">
+      <div class="fItem"><label>SDG 類別</label>
+        <select id="fSdg" onchange="applyFilter()">
+          <option value="">全部目標</option>
+          <option value="3">SDG 3 健康與福祉</option>
+          <option value="4">SDG 4 優質教育</option>
+          <option value="11">SDG 11 永續城市</option>
+          <option value="12">SDG 12 負責任消費</option>
+          <option value="13">SDG 13 氣候行動</option>
+          <option value="14">SDG 14 海洋生態</option>
+        </select>
+      </div>
+      <div class="fItem"><label>開始日期</label><input type="date" id="fStart" value="2026-05-01" onchange="applyFilter()"/></div>
+      <div class="fItem"><label>結束日期</label><input type="date" id="fEnd" value="2026-12-31" onchange="applyFilter()"/></div>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
+  <!-- ── 任務道館列表 ── -->
+  <div id="questPanel" class="bottomSheet">
+    <div class="sheetTopBar">
+      <div class="sheetHandle"></div>
+      <button class="sheetClose" onclick="closeAllPanels()">▼ 收起</button>
+    </div>
+    <div class="sheetTitle">⚔️ 任務道館列表</div>
+    <div id="questList"></div>
+  </div>
+
+  <!-- ── 打卡面板 ── -->
+  <div id="checkinPanel" class="bottomSheet">
+    <div class="sheetTopBar">
+      <div class="sheetHandle"></div>
+      <button class="sheetClose" onclick="closeAllPanels()">▼ 收起</button>
+    </div>
+    <div class="sheetTitle">🎯 今日打卡</div>
+    <div class="achieveTitle">💧 喝水打卡</div>
+    <div class="checkinBox">
+      <div class="waterCups" id="waterCups"></div>
+      <div class="waterGoalText" id="waterGoalText">今日 0 / 8 杯 (0 ml)</div>
+      <button class="btnCheckin water" onclick="addWater()">＋ 喝一杯水 (250ml)</button>
+    </div>
+    <div class="achieveTitle" style="margin-top:.8rem">😊 心情打卡</div>
+    <div class="checkinBox">
+      <div class="moodGrid">
+        <button class="moodBtn" onclick="setMood('🌟','充滿活力')">🌟<br><small>活力</small></button>
+        <button class="moodBtn" onclick="setMood('😊','開心')">😊<br><small>開心</small></button>
+        <button class="moodBtn" onclick="setMood('😌','平靜')">😌<br><small>平靜</small></button>
+        <button class="moodBtn" onclick="setMood('😐','普通')">😐<br><small>普通</small></button>
+        <button class="moodBtn" onclick="setMood('😢','難過')">😢<br><small>難過</small></button>
+        <button class="moodBtn" onclick="setMood('😤','疲累')">😤<br><small>疲累</small></button>
+      </div>
+      <div id="moodStatus" class="moodStatus">今日尚未打卡</div>
+      <div class="inputWrap" style="margin-top:.5rem">
+        <span>📝</span>
+        <input id="moodNote" type="text" placeholder="備注心情（選填）"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 勇者資料面板 ── -->
+  <div id="profilePanel" class="bottomSheet">
+    <div class="sheetTopBar">
+      <div class="sheetHandle"></div>
+      <button class="sheetClose" onclick="closeAllPanels()">▼ 收起</button>
+    </div>
+    <div class="profileHero">
+      <div class="profileAvatar">🧙</div>
+      <div class="profileName" id="profileName">勇者</div>
+      <div class="profileUid" id="profileUid">UID · U001</div>
+      <div class="profileBadges">
+        <span class="pBadge lv">Lv.18</span>
+        <span class="pBadge xp">⭐ 1,200 XP</span>
+        <span class="pBadge coin">💎 500</span>
+      </div>
+      <div class="profileBar"><div class="profileBarFill" id="profileXpBar" style="width:72%"></div></div>
+      <div class="profileBarLabel">距下一等級 350 XP</div>
+    </div>
+    <div class="achieveTitle">🏅 成就勳章</div>
+    <div class="profileAchieves">
+      <div class="pAchieve" style="--c:#10b981">🌱<br><small>生態先鋒</small></div>
+      <div class="pAchieve" style="--c:#0a97d9">🌊<br><small>海洋守護</small></div>
+      <div class="pAchieve" style="--c:#f59e0b">🥘<br><small>惜食達人</small></div>
+      <div class="pAchieve" style="--c:#a78bfa">📖<br><small>知識勇者</small></div>
+    </div>
+    <div class="achieveTitle" style="margin-top:1rem">📊 健康數據</div>
+    <div class="statsRow2">
+      <div class="sCard2 green"><div>👟</div><div class="sN2" id="stepsCount">7,842</div><div>今日步數</div></div>
+      <div class="sCard2 blue"><div>💧</div><div class="sN2" id="waterPct">0%</div><div>喝水達標</div></div>
+      <div class="sCard2 purple"><div>🌱</div><div class="sN2">3</div><div>走路種樹</div></div>
+      <div class="sCard2 orange"><div>🏙️</div><div class="sN2">72</div><div>永續指數</div></div>
+    </div>
+    <!-- 查看/編輯個人資訊 -->
+    <div class="achieveTitle" style="margin-top:.8rem">✏️ 個人資料管理</div>
+    <div class="profileInfoView">
+      <div class="infoRow"><span class="infoLabel">帳號</span><span id="infoName">user</span></div>
+      <div class="infoRow"><span class="infoLabel">角色</span><span>⚔️ 勇者</span></div>
+      <div class="infoRow"><span class="infoLabel">經驗值</span><span id="infoXp">1,200 XP</span></div>
+      <div class="infoRow"><span class="infoLabel">硬幣</span><span id="infoCoin">💎 500</span></div>
+    </div>
+    <div class="updateForm" style="margin-top:.6rem">
+      <div class="inputWrap"><span>👤</span><input id="updName" type="text" placeholder="修改暱稱"/></div>
+      <div class="inputWrap"><span>🔒</span><input id="updPass" type="password" placeholder="新密碼（留空不更改）"/></div>
+      <div class="inputWrap"><span>🔒</span><input id="updPass2" type="password" placeholder="確認新密碼"/></div>
+      <button class="btnUpdate" onclick="saveProfile()">💾 儲存更新</button>
+    </div>
+  </div>
+
+</div><!-- #userApp -->
+
+
+<!-- ══════════════════════════════
+  NPO APP — 道館主後台
+══════════════════════════════ -->
+<div id="npoApp" class="hidden">
+  <div id="npoSidebar">
+    <div class="adminLogo">🏛️ 道館管理</div>
+    <nav class="adminNav">
+      <button class="aNavBtn active" onclick="npoTab('overview',this)">📊 道館總覽</button>
+      <button class="aNavBtn" onclick="npoTab('events',this)">⚔️ 活動管理</button>
+      <button class="aNavBtn" onclick="npoTab('regs',this)">👥 報名名單</button>
+      <button class="aNavBtn" onclick="npoTab('comments',this)">💬 活動留言</button>
+    </nav>
+    <button class="aLogout" onclick="doLogout()">⬅ 登出</button>
+  </div>
+  <div id="npoMain">
+    <div id="npoHeader">
+      <span id="npoPageTitle">📊 道館總覽</span>
+      <span class="adminWho" id="npoWhoLabel">🏛️ 道館主</span>
+    </div>
+    <div id="npoContent">
+
+      <!-- Overview -->
+      <div id="nTab-overview" class="aTab active">
+        <div class="aStatGrid">
+          <div class="aStat"><div class="aStatIcon">⚔️</div><div class="aStatNum" id="npoStatEvents">0</div><div class="aStatLabel">我的活動</div></div>
+          <div class="aStat green"><div class="aStatIcon">👥</div><div class="aStatNum" id="npoStatRegs">0</div><div class="aStatLabel">總報名數</div></div>
+          <div class="aStat blue"><div class="aStatIcon">💎</div><div class="aStatNum" id="npoStatReward">0</div><div class="aStatLabel">發出獎勵</div></div>
+          <div class="aStat purple"><div class="aStatIcon">💬</div><div class="aStatNum" id="npoStatComments">0</div><div class="aStatLabel">留言數</div></div>
+        </div>
+        <div class="aChartGrid">
+          <div class="aChartBox"><div class="aChartTitle">📈 活動報名趨勢</div><canvas id="npoRegChart"></canvas></div>
+          <div class="aChartBox"><div class="aChartTitle">👥 各活動報名率</div><canvas id="npoRateChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- My Events -->
+      <div id="nTab-events" class="aTab">
+        <div class="aToolbar">
+          <button class="aBtnPrimary" onclick="showNpoAddModal()">＋ 上架新活動</button>
+        </div>
+        <table class="aTable">
+          <thead><tr><th>EID</th><th>活動名稱</th><th>日期</th><th>SDG</th><th>名額</th><th>操作</th></tr></thead>
+          <tbody id="npoEventBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Registrations -->
+      <div id="nTab-regs" class="aTab">
+        <table class="aTable">
+          <thead><tr><th>報名 ID</th><th>活動</th><th>勇者</th><th>日期</th><th>狀態</th></tr></thead>
+          <tbody id="npoRegBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Comments -->
+      <div id="nTab-comments" class="aTab">
+        <div class="fItem" style="margin-bottom:.75rem">
+          <label>選擇活動</label>
+          <select id="npoCommentEid" class="gameSelect" onchange="loadNpoComments()">
+          </select>
+        </div>
+        <div id="npoCommentList"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Add Event Modal (NPO) -->
+  <div id="npoAddModal" class="modal hidden">
+    <div class="modalBox">
+      <div class="modalTitle">🏛️ 上架活動道館</div>
+      <div class="modalForm">
+        <input id="npoEname" class="gameInput" placeholder="活動名稱"/>
+        <input id="npoEloc" class="gameInput" placeholder="活動地點"/>
+        <input id="npoEdate" type="date" class="gameInput"/>
+        <select id="npoEsdg" class="gameSelect">
+          <option value="4">SDG 4 — 優質教育</option>
+          <option value="11">SDG 11 — 永續城市</option>
+          <option value="12">SDG 12 — 負責任消費</option>
+          <option value="13">SDG 13 — 氣候行動</option>
+          <option value="14">SDG 14 — 海洋生態</option>
+        </select>
+        <input id="npoEquota" class="gameInput" type="number" placeholder="名額上限" min="1" value="20"/>
+        <input id="npoEreward" class="gameInput" type="number" placeholder="獎勵硬幣" min="0" value="60"/>
+      </div>
+      <div class="modalBtns">
+        <button class="aBtnPrimary" onclick="npoAddEvent()">確認上架</button>
+        <button class="aBtnSec" onclick="closeNpoModal()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+  ADMIN APP
+══════════════════════════════ -->
+<div id="adminApp" class="hidden">
+  <div id="adminSidebar">
+    <div class="adminLogo">🛡️ 管理後台</div>
+    <nav class="adminNav">
+      <button class="aNavBtn active" onclick="adminTab('overview',this)">📊 總覽</button>
+      <button class="aNavBtn" onclick="adminTab('events',this)">🗺️ 活動管理</button>
+      <button class="aNavBtn" onclick="adminTab('members',this)">👥 會員管理</button>
+      <button class="aNavBtn" onclick="adminTab('comments',this)">💬 留言管理</button>
+      <button class="aNavBtn" onclick="adminTab('analytics',this)">📈 數據分析</button>
+    </nav>
+    <button class="aLogout" onclick="doLogout()">⬅ 登出</button>
+  </div>
+  <div id="adminMain">
+    <div id="adminHeader"><span id="adminPageTitle">📊 系統總覽</span><span class="adminWho">🛡️ 管理員</span></div>
+    <div id="adminContent">
+
+      <!-- Overview -->
+      <div id="aTab-overview" class="aTab active">
+        <div class="aStatGrid">
+          <div class="aStat"><div class="aStatIcon">🏛️</div><div class="aStatNum">5</div><div class="aStatLabel">活動道館</div></div>
+          <div class="aStat"><div class="aStatIcon">👥</div><div class="aStatNum">5</div><div class="aStatLabel">註冊勇者</div></div>
+          <div class="aStat"><div class="aStatIcon">📝</div><div class="aStatNum">4</div><div class="aStatLabel">報名記錄</div></div>
+          <div class="aStat"><div class="aStatIcon">💬</div><div class="aStatNum">4</div><div class="aStatLabel">活躍留言</div></div>
+        </div>
+        <div class="aChartGrid">
+          <div class="aChartBox"><div class="aChartTitle">📈 每日步數趨勢</div><canvas id="adminStepsChart"></canvas></div>
+          <div class="aChartBox"><div class="aChartTitle">🎯 SDG 參與分布</div><canvas id="adminSdgChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Events -->
+      <div id="aTab-events" class="aTab">
+        <div class="aToolbar">
+          <button class="aBtnPrimary" onclick="showAddEventModal()">＋ 新增活動</button>
+        </div>
+        <table class="aTable" id="adminEventTable">
+          <thead><tr><th>EID</th><th>活動名稱</th><th>地點</th><th>日期</th><th>SDG</th><th>操作</th></tr></thead>
+          <tbody id="adminEventBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Members -->
+      <div id="aTab-members" class="aTab">
+        <table class="aTable">
+          <thead><tr><th>UID</th><th>暱稱</th><th>XP</th><th>💎 錢包</th><th>報名數</th></tr></thead>
+          <tbody>
+            <tr><td>U001</td><td>Ming</td><td>1,200</td><td>500</td><td>1</td></tr>
+            <tr><td>U002</td><td>Hua</td><td>3,500</td><td>1,200</td><td>2</td></tr>
+            <tr><td>U003</td><td>TesterA</td><td>0</td><td>0</td><td>0</td></tr>
+            <tr><td>U004</td><td>Zhong</td><td>450</td><td>250</td><td>0</td></tr>
+            <tr><td>U005</td><td>Anonymous</td><td>2,100</td><td>880</td><td>1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Comments -->
+      <div id="aTab-comments" class="aTab">
+        <table class="aTable" id="adminCommentTable">
+          <thead><tr><th>MSG_ID</th><th>道館</th><th>勇者</th><th>留言內容</th><th>時間</th><th>操作</th></tr></thead>
+          <tbody id="adminCommentBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Analytics -->
+      <div id="aTab-analytics" class="aTab">
+        <div class="aStatGrid">
+          <div class="aStat green"><div class="aStatIcon">👟</div><div class="aStatNum">7,842</div><div class="aStatLabel">今日步數</div></div>
+          <div class="aStat blue"><div class="aStatIcon">💧</div><div class="aStatNum">87%</div><div class="aStatLabel">喝水達標</div></div>
+          <div class="aStat purple"><div class="aStatIcon">🌱</div><div class="aStatNum">3</div><div class="aStatLabel">走路種樹</div></div>
+          <div class="aStat orange"><div class="aStatIcon">🏙️</div><div class="aStatNum">72/100</div><div class="aStatLabel">永續指數</div></div>
+        </div>
+        <div class="aChartGrid" style="grid-template-columns:repeat(2,1fr)">
+          <div class="aChartBox"><div class="aChartTitle">🏆 勇者 XP 排行</div><canvas id="adminXpChart"></canvas></div>
+          <div class="aChartBox"><div class="aChartTitle">📋 企業 ESG 時數</div><canvas id="adminEsgChart"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Add Event Modal -->
+  <div id="addEventModal" class="modal hidden">
+    <div class="modalBox">
+      <div class="modalTitle">➕ 新增活動道館</div>
+      <div class="modalForm">
+        <input id="newEname" class="gameInput" placeholder="活動名稱"/>
+        <input id="newEloc" class="gameInput" placeholder="地點"/>
+        <input id="newEdate" type="date" class="gameInput"/>
+        <select id="newEsdg" class="gameSelect">
+          <option value="4">SDG 4 — 優質教育</option>
+          <option value="12">SDG 12 — 負責任消費</option>
+          <option value="13">SDG 13 — 氣候行動</option>
+          <option value="14">SDG 14 — 海洋生態</option>
+          <option value="11">SDG 11 — 永續城市</option>
+        </select>
+      </div>
+      <div class="modalBtns">
+        <button class="aBtnPrimary" onclick="addEvent()">確認新增</button>
+        <button class="aBtnSec" onclick="closeModal()">取消</button>
+      </div>
+    </div>
+  </div>
+</div><!-- #adminApp -->
+
+<script src="app.js"></script>
+</body>
+</html>
