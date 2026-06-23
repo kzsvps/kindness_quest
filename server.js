@@ -28,8 +28,16 @@ const q = async (sql, p=[]) => { const [r] = await pool.execute(sql, p); return 
 const makeLike = (keyword='') => `%${keyword.trim()}%`;
 const demoSqlFiles = ['drop.sql', 'schema_v2.sql', 'seed_v2.sql'];
 
+const geocodeAliases = [
+  {
+    match: /(綠川西街135號|東協廣場|台中市紅十字會)/,
+    query: '東協廣場 台中',
+  },
+];
+
 async function geocodeAddress(address='') {
-  const keyword = String(address || '').trim();
+  const rawKeyword = String(address || '').trim();
+  const keyword = geocodeAliases.find(item => item.match.test(rawKeyword))?.query || rawKeyword;
   if (!keyword) return null;
   const endpoint = new URL('https://nominatim.openstreetmap.org/search');
   endpoint.searchParams.set('q', keyword);
