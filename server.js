@@ -35,6 +35,17 @@ const geocodeAliases = [
   },
 ];
 
+
+async function generateNextEventId() {
+  const rows = await q(`
+    SELECT MAX(CAST(SUBSTRING(eid, 2) AS UNSIGNED)) AS max_id
+    FROM events
+    WHERE eid REGEXP '^E[0-9]+$'
+  `);
+  const nextId = Number(rows?.[0]?.max_id || 0) + 1;
+  return `E${String(nextId).padStart(3, '0')}`;
+}
+
 async function geocodeAddress(address='') {
   const rawKeyword = String(address || '').trim();
   const keyword = geocodeAliases.find(item => item.match.test(rawKeyword))?.query || rawKeyword;
@@ -252,7 +263,6 @@ app.get('/api/events', async (req, res) => {
 app.post('/api/events', async (req, res) => {
   try {
     const {
-      eid,
       name,
       loc,
       date,
@@ -269,15 +279,16 @@ app.post('/api/events', async (req, res) => {
       requirements,
       duration,
     } = req.body;
-    if (!eid || !name || !loc || !date || !sdg_id || !npo_id) {
+    if (!name || !loc || !date || !sdg_id || !npo_id) {
       return res.status(400).json({ error:'活動資料不完整' });
     }
+    const eid = await generateNextEventId();
     await q(
       `INSERT INTO events
        (eid,name,loc,date,end_date,sdg_id,npo_id,quota,reward,xp,icon,lat,lng,description,requirements,duration)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [eid,name,loc,date,end_date,sdg_id,npo_id,quota||20,reward||60,xp||90,icon||'',lat||0,lng||0,description||'',requirements||'',duration||'']);
-    res.json({ ok:true });
+    res.json({ ok:true, eid });
   } catch(e){ res.status(500).json({ error:e.message }); }
 });
 

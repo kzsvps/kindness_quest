@@ -1302,10 +1302,9 @@ async function npoAddEvent(){
   const requirements=document.getElementById('npoErequirements').value.trim();
   const description=document.getElementById('npoEdesc').value.trim();
   if(!name||!loc||!date){ showToast('請填寫所有欄位','error'); return; }
-  const eid=nextEventId();
   const geo=await geocodeAddress(loc);
   const icMap={3:'H',4:'B',11:'S',12:'R',13:'G',14:'W'};
-  const newEv={eid,name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
+  const newEv={name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
     npo_name:currentUser.npo_name,quota,reward,joined:0,xp:Math.round(reward*1.5),icon:icMap[sdg]||'L',
     lat:geo?.lat ?? FCU_POS[0]+(Math.random()-.5)*.05,lng:geo?.lng ?? FCU_POS[1]+(Math.random()-.5)*.05,
     description:description||('由 '+currentUser.npo_name+' 主辦。'),
@@ -1315,7 +1314,7 @@ async function npoAddEvent(){
     npo_id:currentUser.npo_id||'NP01'};
   const result = await api('POST','/api/events',{...newEv,npo_id:currentUser.npo_id||'NP01',sdg_id:sdg});
   if(result?.ok===false){ showToast(result.error||'活動上架失敗','error'); return; }
-  activeEvents.push(newEv);
+  activeEvents.push({ ...newEv, eid: result.eid || nextEventId() });
   closeNpoModal(); renderNpoEvents(); if(map) renderMarkers();
   showToast('✅ 活動「'+name+'」上架成功！','success');
 }
@@ -1476,9 +1475,8 @@ async function addEvent(){
   const requirements=document.getElementById('newErequirements').value.trim();
   const description=document.getElementById('newEdesc').value.trim();
   if(!name||!loc||!date){ showToast('請填寫所有欄位','error'); return; }
-  const eid=nextEventId();
   const geo=await geocodeAddress(loc);
-  const newEv={eid,name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
+  const newEv={name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
     npo_name:'邁邁勇者平台',quota,joined:0,reward,xp:Math.round(reward*1.5),icon:'L',
     lat:geo?.lat ?? FCU_POS[0]+(Math.random()-.5)*.05,lng:geo?.lng ?? FCU_POS[1]+(Math.random()-.5)*.05,
     description:description||'管理員新增活動。',
@@ -1488,7 +1486,7 @@ async function addEvent(){
     npo_id:'NP01'};
   const result = await api('POST','/api/events',{...newEv,npo_id:'NP01',sdg_id:sdg});
   if(result?.ok===false){ showToast(result.error||'活動新增失敗','error'); return; }
-  activeEvents.push(newEv);
+  activeEvents.push({ ...newEv, eid: result.eid || nextEventId() });
   closeModal(); renderAdminEvents(); if(map) renderMarkers();
   showToast('✅ 活動「'+name+'」已新增！','success');
 }
