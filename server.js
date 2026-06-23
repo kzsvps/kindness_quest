@@ -293,6 +293,57 @@ app.post('/api/events', async (req, res) => {
 });
 
 // 刪除活動
+app.put('/api/events/:eid', async (req, res) => {
+  try {
+    const {
+      name,
+      loc,
+      date,
+      end_date=null,
+      sdg_id,
+      npo_id,
+      quota,
+      reward,
+      xp,
+      icon,
+      lat,
+      lng,
+      description,
+      requirements,
+      duration,
+      status='active',
+    } = req.body;
+    if (!name || !loc || !date || !sdg_id || !npo_id) {
+      return res.status(400).json({ error:'活動必填欄位不足' });
+    }
+    await q(
+      `UPDATE events
+       SET name=?, loc=?, date=?, end_date=?, sdg_id=?, npo_id=?, quota=?, reward=?, xp=?, icon=?, lat=?, lng=?, description=?, requirements=?, duration=?, status=?
+       WHERE eid=?`,
+      [
+        name,
+        loc,
+        date,
+        end_date,
+        sdg_id,
+        npo_id,
+        quota || 20,
+        reward || 60,
+        xp || 90,
+        icon || '',
+        lat || 0,
+        lng || 0,
+        description || '',
+        requirements || '',
+        duration || '',
+        status || 'active',
+        req.params.eid,
+      ]
+    );
+    res.json({ ok:true, eid:req.params.eid });
+  } catch(e){ res.status(500).json({ error:e.message }); }
+});
+
 app.delete('/api/events/:eid', async (req, res) => {
   try { await q('UPDATE events SET status=? WHERE eid=?', ['cancelled', req.params.eid]); res.json({ ok:true }); }
   catch(e){ res.status(500).json({ error:e.message }); }

@@ -397,7 +397,7 @@
   <!-- Add Event Modal (NPO) -->
   <div id="npoAddModal" class="modal hidden">
     <div class="modalBox modalWide">
-      <div class="modalTitle">🏛️ 上架活動道館</div>
+      <div class="modalTitle" id="npoEventModalTitle">🏛️ 上架活動道館</div>
       <div class="helperRow">
         <span>先帶入一筆完整活動資料，微調日期或名額後就能直接建立。</span>
         <button class="btnGhost" type="button" onclick="fillDemoEventForm('npo')">帶入活動資料</button>
@@ -447,7 +447,7 @@
         </div>
       </div>
       <div class="modalBtns">
-        <button class="aBtnPrimary" onclick="npoAddEvent()">確認上架</button>
+        <button class="aBtnPrimary" id="npoEventSubmitBtn" onclick="npoAddEvent()">確認上架</button>
         <button class="aBtnSec" onclick="closeNpoModal()">取消</button>
       </div>
     </div>
@@ -571,7 +571,7 @@
   <!-- Add Event Modal -->
   <div id="addEventModal" class="modal hidden">
     <div class="modalBox modalWide">
-      <div class="modalTitle">➕ 新增活動道館</div>
+      <div class="modalTitle" id="adminEventModalTitle">➕ 新增活動道館</div>
       <div class="helperRow">
         <span>管理員可先帶入完整活動欄位，再依照展示內容快速調整。</span>
         <button class="btnGhost" type="button" onclick="fillDemoEventForm('admin')">帶入活動資料</button>
@@ -621,7 +621,7 @@
         </div>
       </div>
       <div class="modalBtns">
-        <button class="aBtnPrimary" onclick="addEvent()">確認新增</button>
+        <button class="aBtnPrimary" id="adminEventSubmitBtn" onclick="addEvent()">確認新增</button>
         <button class="aBtnSec" onclick="closeModal()">取消</button>
       </div>
     </div>

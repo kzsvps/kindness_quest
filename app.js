@@ -64,6 +64,55 @@ function formatDateTimeDisplay(value, empty='未提供時間'){
   return parsed ? TW_DATE_TIME.format(parsed) : empty;
 }
 
+let editingNpoEventId = null;
+let editingAdminEventId = null;
+
+function getEventById(eid){
+  return activeEvents.find(event => event.eid === eid) || null;
+}
+
+function toInputDate(value){
+  if(!value) return '';
+  const raw=String(value);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed=parseDateValue(value);
+  return parsed ? parsed.toISOString().slice(0,10) : '';
+}
+
+function fillEventFormFields(prefix, event){
+  document.getElementById(`${prefix}Ename`).value = event.name || '';
+  document.getElementById(`${prefix}Eloc`).value = event.loc || '';
+  document.getElementById(`${prefix}Edate`).value = toInputDate(event.date);
+  document.getElementById(`${prefix}Esdg`).value = String(event.sdg_id || 4);
+  document.getElementById(`${prefix}Equota`).value = event.quota ?? '';
+  document.getElementById(`${prefix}Ereward`).value = event.reward ?? '';
+  document.getElementById(`${prefix}Eduration`).value = event.duration || '';
+  document.getElementById(`${prefix}Erequirements`).value = event.requirements || '';
+  document.getElementById(`${prefix}Edesc`).value = event.description || '';
+}
+
+function resetEventFormFields(prefix){
+  fillEventFormFields(prefix, {
+    name: '',
+    loc: '',
+    date: '',
+    sdg_id: 4,
+    quota: prefix === 'npo' ? 20 : 30,
+    reward: 60,
+    duration: '',
+    requirements: '',
+    description: '',
+  });
+}
+
+function applyEventModalMode(mode, editing=false){
+  const isNpo = mode === 'npo';
+  const title = document.getElementById(isNpo ? 'npoEventModalTitle' : 'adminEventModalTitle');
+  const submit = document.getElementById(isNpo ? 'npoEventSubmitBtn' : 'adminEventSubmitBtn');
+  if(title) title.textContent = editing ? '✏️ 編輯活動資料' : (isNpo ? '🏛️ 上架活動道館' : '➕ 新增活動道館');
+  if(submit) submit.textContent = editing ? '確認儲存' : (isNpo ? '確認上架' : '確認新增');
+}
+
 function isRegisteredForEvent(eid){
   return registrationRows.some(row=>row.eid===eid && row.uid===currentUser?.uid);
 }
@@ -1220,7 +1269,10 @@ function renderNpoEvents(){
           <td>${ev.eid}</td><td>${ico} ${ev.name}</td><td>${formatDateDisplay(ev.date,'未提供日期')}</td>
           <td><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span></td>
           <td>${ev.joined}/${ev.quota}</td>
-          <td><button class="aBtnDel" onclick="npoDeleteEvent('${ev.eid}')">下架</button></td>
+          <td>
+            <button class="aBtnView" onclick="startNpoEditEvent('${ev.eid}')">編輯</button>
+            <button class="aBtnDel" onclick="npoDeleteEvent('${ev.eid}')">下架</button>
+          </td>
         </tr>`;
       }).join('')
     :'<tr><td colspan="6" style="text-align:center;color:#64748b;padding:1.5rem">尚無活動</td></tr>';
@@ -1230,7 +1282,7 @@ async function npoDeleteEvent(eid){
   const result = await api('DELETE',`/api/events/${eid}`);
   if(result?.ok===false){ showToast(result.error||'下架失敗','error'); return; }
   activeEvents=activeEvents.filter(e=>e.eid!==eid);
-  renderNpoEvents(); if(map) renderMarkers();
+  renderNpoEvents(); renderNpoRegs(); populateNpoCommentSelect(); if(map) renderMarkers();
   showToast('活動已下架','success');
 }
 
@@ -1288,8 +1340,27 @@ async function npoDelComment(eid,idx,cid){
   showToast('留言已刪除','success');
 }
 
-function showNpoAddModal(){ document.getElementById('npoAddModal').classList.remove('hidden'); }
-function closeNpoModal()  { document.getElementById('npoAddModal').classList.add('hidden'); }
+function showNpoAddModal(){
+  editingNpoEventId = null;
+  resetEventFormFields('npo');
+  applyEventModalMode('npo', false);
+  document.getElementById('npoAddModal').classList.remove('hidden');
+}
+function closeNpoModal(){
+  editingNpoEventId = null;
+  resetEventFormFields('npo');
+  applyEventModalMode('npo', false);
+  document.getElementById('npoAddModal').classList.add('hidden');
+}
+
+function startNpoEditEvent(eid){
+  const event = getEventById(eid);
+  if(!event){ showToast('找不到要編輯的活動','error'); return; }
+  editingNpoEventId = eid;
+  fillEventFormFields('npo', event);
+  applyEventModalMode('npo', true);
+  document.getElementById('npoAddModal').classList.remove('hidden');
+}
 
 async function npoAddEvent(){
   const name=document.getElementById('npoEname').value.trim();
@@ -1301,22 +1372,30 @@ async function npoAddEvent(){
   const duration=document.getElementById('npoEduration').value.trim();
   const requirements=document.getElementById('npoErequirements').value.trim();
   const description=document.getElementById('npoEdesc').value.trim();
-  if(!name||!loc||!date){ showToast('請填寫所有欄位','error'); return; }
+  if(!name||!loc||!date){ showToast('請先完整填寫活動資料','error'); return; }
   const geo=await geocodeAddress(loc);
+  const currentEvent = editingNpoEventId ? getEventById(editingNpoEventId) : null;
   const icMap={3:'H',4:'B',11:'S',12:'R',13:'G',14:'W'};
-  const newEv={name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
-    npo_name:currentUser.npo_name,quota,reward,joined:0,xp:Math.round(reward*1.5),icon:icMap[sdg]||'L',
-    lat:geo?.lat ?? FCU_POS[0]+(Math.random()-.5)*.05,lng:geo?.lng ?? FCU_POS[1]+(Math.random()-.5)*.05,
-    description:description||('由 '+currentUser.npo_name+' 主辦。'),
-    requirements:requirements||'請洽主辦單位。',
-    duration:duration||'詳見主辦公告',
-    status:'active',
+  const eventPayload={name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
+    npo_name:currentUser.npo_name,quota,reward,joined:currentEvent?.joined||0,xp:Math.round(reward*1.5),icon:icMap[sdg]||'L',
+    lat:geo?.lat ?? currentEvent?.lat ?? FCU_POS[0]+(Math.random()-.5)*.05,lng:geo?.lng ?? currentEvent?.lng ?? FCU_POS[1]+(Math.random()-.5)*.05,
+    description:description||('由 '+currentUser.npo_name+' 發起的公益活動。'),
+    requirements:requirements||'請依活動需求準備服裝與個人物品。',
+    duration:duration||'活動時段待公告',
+    status:currentEvent?.status||'active',
     npo_id:currentUser.npo_id||'NP01'};
-  const result = await api('POST','/api/events',{...newEv,npo_id:currentUser.npo_id||'NP01',sdg_id:sdg});
-  if(result?.ok===false){ showToast(result.error||'活動上架失敗','error'); return; }
-  activeEvents.push({ ...newEv, eid: result.eid || nextEventId() });
-  closeNpoModal(); renderNpoEvents(); if(map) renderMarkers();
-  showToast('✅ 活動「'+name+'」上架成功！','success');
+  const editingId = editingNpoEventId;
+  const method = editingId ? 'PUT' : 'POST';
+  const path = editingId ? '/api/events/' + editingId : '/api/events';
+  const result = await api(method, path, {...eventPayload,npo_id:currentUser.npo_id||'NP01',sdg_id:sdg});
+  if(result?.ok===false){ showToast(result.error||'活動儲存失敗','error'); return; }
+  if(editingId){
+    activeEvents = activeEvents.map(ev => ev.eid===editingId ? { ...ev, ...eventPayload } : ev);
+  }else{
+    activeEvents.push({ ...eventPayload, eid: result.eid || nextEventId() });
+  }
+  closeNpoModal(); renderNpoEvents(); renderNpoRegs(); populateNpoCommentSelect(); if(map) renderMarkers();
+  showToast(editingId ? '活動資料已更新' : '活動已成功上架','success');
 }
 
 let npoChartsInit=false;
@@ -1356,7 +1435,10 @@ function renderAdminEvents(){
     return `<tr>
       <td>${ev.eid}</td><td>${ico} ${ev.name}</td><td>${ev.loc}</td><td>${formatDateDisplay(ev.date,'未提供日期')}</td>
       <td><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span></td>
-      <td><button class="aBtnDel" onclick="deleteAdminEvent('${ev.eid}')">刪除</button></td>
+      <td>
+        <button class="aBtnView" onclick="startAdminEditEvent('${ev.eid}')">編輯</button>
+        <button class="aBtnDel" onclick="deleteAdminEvent('${ev.eid}')">刪除</button>
+      </td>
     </tr>`;
   }).join('');
   renderRegistrationGroupCardsSafe(activeEvents, registrationRows, 'adminRegGroups');
@@ -1461,8 +1543,27 @@ async function deleteAdminEvent(eid){
   showToast('已刪除活動 '+eid,'success');
 }
 
-function showAddEventModal(){ document.getElementById('addEventModal').classList.remove('hidden'); }
-function closeModal()        { document.getElementById('addEventModal').classList.add('hidden'); }
+function showAddEventModal(){
+  editingAdminEventId = null;
+  resetEventFormFields('new');
+  applyEventModalMode('admin', false);
+  document.getElementById('addEventModal').classList.remove('hidden');
+}
+function closeModal(){
+  editingAdminEventId = null;
+  resetEventFormFields('new');
+  applyEventModalMode('admin', false);
+  document.getElementById('addEventModal').classList.add('hidden');
+}
+
+function startAdminEditEvent(eid){
+  const event = getEventById(eid);
+  if(!event){ showToast('找不到要編輯的活動','error'); return; }
+  editingAdminEventId = eid;
+  fillEventFormFields('new', event);
+  applyEventModalMode('admin', true);
+  document.getElementById('addEventModal').classList.remove('hidden');
+}
 
 async function addEvent(){
   const name=document.getElementById('newEname').value.trim();
@@ -1474,21 +1575,29 @@ async function addEvent(){
   const duration=document.getElementById('newEduration').value.trim();
   const requirements=document.getElementById('newErequirements').value.trim();
   const description=document.getElementById('newEdesc').value.trim();
-  if(!name||!loc||!date){ showToast('請填寫所有欄位','error'); return; }
+  if(!name||!loc||!date){ showToast('請先完整填寫活動資料','error'); return; }
   const geo=await geocodeAddress(loc);
-  const newEv={name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
-    npo_name:'邁邁勇者平台',quota,joined:0,reward,xp:Math.round(reward*1.5),icon:'L',
-    lat:geo?.lat ?? FCU_POS[0]+(Math.random()-.5)*.05,lng:geo?.lng ?? FCU_POS[1]+(Math.random()-.5)*.05,
-    description:description||'管理員新增活動。',
-    requirements:requirements||'請洽主辦單位。',
-    duration:duration||'待定',
-    status:'active',
-    npo_id:'NP01'};
-  const result = await api('POST','/api/events',{...newEv,npo_id:'NP01',sdg_id:sdg});
-  if(result?.ok===false){ showToast(result.error||'活動新增失敗','error'); return; }
-  activeEvents.push({ ...newEv, eid: result.eid || nextEventId() });
+  const currentEvent = editingAdminEventId ? getEventById(editingAdminEventId) : null;
+  const eventPayload={name,loc,date,sdg_id:sdg,sdg_color:SDG_COLOR[sdg]||'#7c3aed',sdg_name:SDG_NAME[sdg]||'',
+    npo_name:currentEvent?.npo_name||'台中市紅十字會',quota,joined:currentEvent?.joined||0,reward,xp:Math.round(reward*1.5),icon:currentEvent?.icon||'L',
+    lat:geo?.lat ?? currentEvent?.lat ?? FCU_POS[0]+(Math.random()-.5)*.05,lng:geo?.lng ?? currentEvent?.lng ?? FCU_POS[1]+(Math.random()-.5)*.05,
+    description:description||'活動說明待補充。',
+    requirements:requirements||'請依活動需求準備服裝與個人物品。',
+    duration:duration||'活動時段待公告',
+    status:currentEvent?.status||'active',
+    npo_id:currentEvent?.npo_id||'NP01'};
+  const editingId = editingAdminEventId;
+  const method = editingId ? 'PUT' : 'POST';
+  const path = editingId ? '/api/events/' + editingId : '/api/events';
+  const result = await api(method, path, {...eventPayload,npo_id:eventPayload.npo_id,sdg_id:sdg});
+  if(result?.ok===false){ showToast(result.error||'活動儲存失敗','error'); return; }
+  if(editingId){
+    activeEvents = activeEvents.map(ev => ev.eid===editingId ? { ...ev, ...eventPayload } : ev);
+  }else{
+    activeEvents.push({ ...eventPayload, eid: result.eid || nextEventId() });
+  }
   closeModal(); renderAdminEvents(); if(map) renderMarkers();
-  showToast('✅ 活動「'+name+'」已新增！','success');
+  showToast(editingId ? '活動資料已更新' : '活動已成功建立','success');
 }
 
 async function renderAdminComments(){
