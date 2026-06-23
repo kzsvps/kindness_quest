@@ -411,7 +411,7 @@ function renderRegistrationGroupCards(events, rows, mountId){
       <div class="regGroupHeader">
         <div>
           <div class="regGroupTitle">${ev.name}</div>
-          <div class="regGroupMeta">EID ${ev.eid} · ${ev.date} · ${ev.loc}<br><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span> · ${ev.npo_name||'未設定主辦單位'}</div>
+          <div class="regGroupMeta">EID ${ev.eid} · ${formatDateDisplay(ev.date,'未提供日期')} · ${ev.loc}<br><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span> · ${ev.npo_name||'未設定主辦單位'}</div>
         </div>
         <div class="regBadge">${group.length} 位報名者</div>
       </div>
@@ -420,7 +420,7 @@ function renderRegistrationGroupCards(events, rows, mountId){
           <div class="regMemberItem">
             <div class="regMemberMain">
               <div class="regMemberName">${row.member_name||row.uid}</div>
-              <div class="regMemberMeta">UID ${row.uid} · ${row.email||'未填 Email'}<br>${row.phone||'未填手機'} · ${row.city||'未填城市'} · 報名日 ${String(row.reg_date||row.event_date||'').slice(0,10)}</div>
+              <div class="regMemberMeta">UID ${row.uid} · ${row.email||'未填 Email'}<br>${row.phone||'未填手機'} · ${row.city||'未填城市'} · 報名日 ${formatDateDisplay(row.reg_date||row.event_date,'未提供日期')}</div>
             </div>
             <div class="regMemberActions">
               <button class="aBtnView" onclick="openMemberDetailModal('${row.uid}')">查看資料</button>
@@ -444,7 +444,7 @@ function renderRegistrationGroupCardsSafe(events, rows, mountId){
         <div class="regMemberItem">
           <div class="regMemberMain">
             <div class="regMemberName">${row.member_name||row.uid}</div>
-            <div class="regMemberMeta">UID ${row.uid} · ${row.email||'未填 Email'}<br>${row.phone||'未填手機'} · ${row.city||'未填城市'} · 報名日 ${String(row.reg_date||row.event_date||'').slice(0,10)}</div>
+            <div class="regMemberMeta">UID ${row.uid} · ${row.email||'未填 Email'}<br>${row.phone||'未填手機'} · ${row.city||'未填城市'} · 報名日 ${formatDateDisplay(row.reg_date||row.event_date,'未提供日期')}</div>
           </div>
           <div class="regMemberActions">
             <button class="aBtnView" onclick="openMemberDetailModal('${row.uid}')">查看資料</button>
@@ -456,7 +456,7 @@ function renderRegistrationGroupCardsSafe(events, rows, mountId){
       <div class="regGroupHeader">
         <div>
           <div class="regGroupTitle">${ev.name}</div>
-          <div class="regGroupMeta">EID ${ev.eid} · ${ev.date} · ${ev.loc}<br><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span> · ${ev.npo_name||'未設定主辦單位'}</div>
+          <div class="regGroupMeta">EID ${ev.eid} · ${formatDateDisplay(ev.date,'未提供日期')} · ${ev.loc}<br><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span> · ${ev.npo_name||'未設定主辦單位'}</div>
         </div>
         <div class="regBadge">${group.length} 位報名者</div>
       </div>
@@ -477,7 +477,7 @@ function openMemberDetailModal(uid){
     ['Email', member.email||'未填寫'],
     ['手機', member.phone||'未填寫'],
     ['城市', member.city||'未填寫'],
-    ['生日', member.birthday ? String(member.birthday).slice(0,10) : '未填寫'],
+    ['生日', formatDateDisplay(member.birthday,'未填寫')],
     ['緊急聯絡人', member.emergency_contact||'未填寫'],
     ['XP', Number(member.xp||0).toLocaleString()],
     ['金幣', Number(member.coin||0).toLocaleString()],
@@ -500,7 +500,7 @@ function openMemberDetailModal(uid){
     ['Email', member.email||'未填寫'],
     ['手機', member.phone||'未填寫'],
     ['城市', member.city||'未填寫'],
-    ['生日', member.birthday ? String(member.birthday).slice(0,10) : '未填寫'],
+    ['生日', formatDateDisplay(member.birthday,'未填寫')],
     ['緊急聯絡人', member.emergency_contact||'未填寫'],
     ['XP', Number(member.xp||0).toLocaleString()],
     ['金幣', Number(member.coin||0).toLocaleString()],
@@ -684,7 +684,7 @@ async function openActivityPanel(eid){
     </div>
     <div class="adDetails">
       <div class="adDetail"><div class="adDetailLabel">📍 地點</div><div class="adDetailVal">${ev.loc}</div></div>
-      <div class="adDetail"><div class="adDetailLabel">📅 日期</div><div class="adDetailVal">${ev.date}</div></div>
+      <div class="adDetail"><div class="adDetailLabel">📅 日期</div><div class="adDetailVal">${formatDateDisplay(ev.date,'未提供日期')}</div></div>
       <div class="adDetail"><div class="adDetailLabel">⏰ 時間</div><div class="adDetailVal">${ev.duration||'待定'}</div></div>
       <div class="adDetail"><div class="adDetailLabel">🏛️ 主辦 NPO</div><div class="adDetailVal">${ev.npo_name}</div></div>
       <div class="adDetail"><div class="adDetailLabel">💎 硬幣獎勵</div><div class="adDetailVal">${ev.reward} 枚</div></div>
@@ -874,7 +874,7 @@ function renderSearch(){
           <div class="srPin" style="background:${col}20;border:2px solid ${col}">${ico}</div>
           <div class="srInfo">
             <div class="srName">${ev.name}</div>
-            <div class="srMeta">📍 ${ev.loc} · 📅 ${ev.date} · 🏛️ ${ev.npo_name} · <span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span> · <b style="color:#f59e0b">+${ev.xp} XP</b></div>
+            <div class="srMeta">📍 ${ev.loc} · 📅 ${formatDateDisplay(ev.date,'未提供日期')} · 🏛️ ${ev.npo_name} · <span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span> · <b style="color:#f59e0b">+${ev.xp} XP</b></div>
           </div>
           <div style="color:#64748b">›</div>
         </div>`;
@@ -903,7 +903,7 @@ function renderQuestList(){
       <div class="questPin">${ico}</div>
       <div style="flex:1">
         <div class="questName">${ev.name}</div>
-        <div class="questMeta">📍 ${ev.loc} | 📅 ${ev.date} <span class="sdgTag" style="background:${col};margin-left:.3rem">SDG ${ev.sdg_id}</span></div>
+        <div class="questMeta">📍 ${ev.loc} | 📅 ${formatDateDisplay(ev.date,'未提供日期')} <span class="sdgTag" style="background:${col};margin-left:.3rem">SDG ${ev.sdg_id}</span></div>
         <div style="margin-top:.4rem;background:#100c28;border-radius:4px;height:5px;overflow:hidden">
           <div style="height:100%;width:${pct}%;background:${col};border-radius:4px;transition:width .6s .1s"></div>
         </div>
@@ -1217,7 +1217,7 @@ function renderNpoEvents(){
         const col=ev.sdg_color||SDG_COLOR[ev.sdg_id]||'#7c3aed';
         const ico=ICON_MAP[ev.icon]||ev.icon||'🌟';
         return `<tr>
-          <td>${ev.eid}</td><td>${ico} ${ev.name}</td><td>${ev.date}</td>
+          <td>${ev.eid}</td><td>${ico} ${ev.name}</td><td>${formatDateDisplay(ev.date,'未提供日期')}</td>
           <td><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span></td>
           <td>${ev.joined}/${ev.quota}</td>
           <td><button class="aBtnDel" onclick="npoDeleteEvent('${ev.eid}')">下架</button></td>
@@ -1249,7 +1249,7 @@ async function renderNpoRegs(){
         <td>${r.rid}</td>
         <td>${r.event_name||r.eid}</td>
         <td>⚔️ ${r.member_name||r.uid}</td>
-        <td>${r.reg_date||r.date}</td>
+        <td>${formatDateDisplay(r.reg_date||r.date,'未提供日期')}</td>
         <td><span style="color:var(--acc);font-size:.78rem;font-weight:700">✅ 已確認</span></td>
       </tr>`).join('')
     :'<tr><td colspan="5" style="text-align:center;color:#64748b;padding:1.5rem">尚無報名記錄</td></tr>';
@@ -1355,7 +1355,7 @@ function renderAdminEvents(){
     const col=ev.sdg_color||SDG_COLOR[ev.sdg_id]||'#7c3aed';
     const ico=ICON_MAP[ev.icon]||ev.icon||'🌟';
     return `<tr>
-      <td>${ev.eid}</td><td>${ico} ${ev.name}</td><td>${ev.loc}</td><td>${ev.date}</td>
+      <td>${ev.eid}</td><td>${ico} ${ev.name}</td><td>${ev.loc}</td><td>${formatDateDisplay(ev.date,'未提供日期')}</td>
       <td><span class="sdgTag" style="background:${col}">SDG ${ev.sdg_id}</span></td>
       <td><button class="aBtnDel" onclick="deleteAdminEvent('${ev.eid}')">刪除</button></td>
     </tr>`;
@@ -1409,7 +1409,7 @@ async function loadArchive(showToastMessage){
     return;
   }
   archiveData=data;
-  document.getElementById('archiveTimestamp').textContent=`快照時間：${(data.snapshot_time||'').replace('T',' ').slice(0,19)}`;
+  document.getElementById('archiveTimestamp').textContent=`快照時間：${formatDateTimeDisplay(data.snapshot_time,'未提供時間')}`;
   document.getElementById('archiveSummary').innerHTML=[
     ['活動', data.summary?.events || 0],
     ['會員', data.summary?.members || 0],
@@ -1420,7 +1420,7 @@ async function loadArchive(showToastMessage){
     (data.events||[]).slice(0,6).map(event=>`
       <div class="archiveItem">
         <div class="archiveItemMain">${event.eid} · ${event.name}</div>
-        <div class="archiveItemMeta">${event.date}<br>${event.npo_name||''}<br>報名 ${event.reg_count||0} · 留言 ${event.comment_count||0}</div>
+        <div class="archiveItemMeta">${formatDateDisplay(event.date,'未提供日期')}<br>${event.npo_name||''}<br>報名 ${event.reg_count||0} · 留言 ${event.comment_count||0}</div>
       </div>`).join('')
   }</div>`;
   document.getElementById('archiveMemberList').innerHTML=`<div class="archiveList">${
@@ -1534,7 +1534,7 @@ async function initAdminCharts(){
     plugins:{legend:{labels:{color:'#e2e8f0',font:{size:11}}}},
     scales:{x:{ticks:{color:'#64748b'},grid:{color:'rgba(255,255,255,.05)'}},y:{ticks:{color:'#64748b'},grid:{color:'rgba(255,255,255,.05)'}}}};
   const trend=sum?.regTrend||[];
-  const trendLabels=trend.map(r=>r.date.slice(5));
+  const trendLabels=trend.map(r=>formatDateDisplay(r.date,'未提供日期').slice(5));
   const trendData=trend.map(r=>r.cnt);
   new Chart(document.getElementById('adminStepsChart'),{type:'line',data:{
     labels:trendLabels,
