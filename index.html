@@ -16,6 +16,14 @@
 ══════════════════════════════ -->
 <div id="loginScreen">
   <canvas id="loginCanvas"></canvas>
+  <div class="loginAurora"></div>
+  <div class="loginGridGlow"></div>
+  <div class="loginOrb orbA"></div>
+  <div class="loginOrb orbB"></div>
+  <div class="loginOrb orbC"></div>
+  <div class="loginStreak streakA"></div>
+  <div class="loginStreak streakB"></div>
+  <div class="loginStreak streakC"></div>
   <div id="loginBox">
     <div class="loginLogo">
       <div class="loginSword">⚔️</div>
@@ -34,8 +42,20 @@
       <div class="inputWrap"><span>🔒</span><input id="loginPass" type="password" placeholder="密碼" value="quest"/></div>
       <button class="btnEnter" onclick="doLogin()">⚔️ 勇者入場</button>
       <div class="roleLinks">
-        <div class="roleLink npoLink" onclick="quickLogin('npo','npo123')">🏛️ 道館主入口</div>
-        <div class="roleLink adminLink" onclick="quickLogin('admin','admin123')">🛡️ 管理員入口</div>
+        <button class="roleLink npoLink" type="button" onclick="quickLogin('npo','npo123')">
+          <span class="roleIcon">🏛️</span>
+          <span class="roleText">
+            <strong>道館主入口</strong>
+            <small>管理活動與報名名單</small>
+          </span>
+        </button>
+        <button class="roleLink adminLink" type="button" onclick="quickLogin('admin','admin123')">
+          <span class="roleIcon">🛡️</span>
+          <span class="roleText">
+            <strong>管理員入口</strong>
+            <small>查看全站數據與總覽</small>
+          </span>
+        </button>
       </div>
     </div>
 
@@ -170,6 +190,7 @@
       <button class="sheetClose" onclick="closeAllPanels()">▼ 收起</button>
     </div>
     <div class="sheetTitle">⚔️ 任務道館列表</div>
+    <div id="dailyTaskBoard"></div>
     <div id="questList"></div>
   </div>
 
@@ -245,18 +266,58 @@
       <div class="infoRow infoRowBlock"><span class="infoLabel">個人簡介</span><span id="infoBio">尚未填寫</span></div>
     </div>
     <div class="updateForm" style="margin-top:.6rem">
-      <div class="inputWrap"><span>👤</span><input id="updName" type="text" placeholder="修改暱稱"/></div>
-      <div class="inputWrap"><span>📧</span><input id="updEmail" type="email" placeholder="修改 Email"/></div>
-      <div class="inputWrap"><span>📱</span><input id="updPhone" type="text" placeholder="手機號碼"/></div>
-      <div class="inputWrap"><span>🏙️</span><input id="updCity" type="text" placeholder="居住城市"/></div>
-      <div class="inputWrap"><span>🎂</span><input id="updBirthday" type="date"/></div>
-      <div class="inputWrap"><span>🆘</span><input id="updEmergency" type="text" placeholder="緊急聯絡人"/></div>
-      <textarea id="updBio" class="gameTextarea" rows="3" placeholder="簡短介紹你的公益興趣、擅長領域或想參加的活動類型"></textarea>
-      <div class="inputWrap"><span>🔒</span><input id="updPass" type="password" placeholder="新密碼（留空不更改）"/></div>
-      <div class="inputWrap"><span>🔒</span><input id="updPass2" type="password" placeholder="確認新密碼"/></div>
+      <div class="formIntro">
+        <div class="formIntroTitle">個人資料編輯</div>
+        <div class="formIntroText">直接修改下列欄位後儲存即可，系統會同步更新你的會員資料。</div>
+      </div>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">帳號名稱</span>
+        <span class="fieldBlockHint">顯示在留言板與活動參與者名單中的名稱</span>
+        <div class="inputWrap"><span>👤</span><input id="updName" type="text" placeholder="例如：小晴、Kevin、環保志工阿哲"/></div>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">Email</span>
+        <span class="fieldBlockHint">用於登入與聯絡通知</span>
+        <div class="inputWrap"><span>📧</span><input id="updEmail" type="email" placeholder="例如：name@example.com"/></div>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">手機號碼</span>
+        <span class="fieldBlockHint">方便活動通知或緊急聯繫</span>
+        <div class="inputWrap"><span>📱</span><input id="updPhone" type="text" placeholder="例如：0912-345-678"/></div>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">居住城市</span>
+        <span class="fieldBlockHint">可幫助推薦你附近的活動</span>
+        <div class="inputWrap"><span>🏙️</span><input id="updCity" type="text" placeholder="例如：台中市西屯區"/></div>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">生日</span>
+        <span class="fieldBlockHint">僅供會員基本資料管理使用</span>
+        <div class="inputWrap"><span>🎂</span><input id="updBirthday" type="date"/></div>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">緊急聯絡人</span>
+        <span class="fieldBlockHint">建議填寫姓名與電話</span>
+        <div class="inputWrap"><span>🆘</span><input id="updEmergency" type="text" placeholder="例如：王小明 / 0900-111-222"/></div>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">個人簡介</span>
+        <span class="fieldBlockHint">讓其他人更了解你的公益興趣與專長</span>
+        <textarea id="updBio" class="gameTextarea" rows="3" placeholder="例如：喜歡環保、教育與社區服務活動，平常會記錄活動照片與協助現場引導。"></textarea>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">新密碼</span>
+        <span class="fieldBlockHint">若不需要修改密碼可以留空</span>
+        <div class="inputWrap"><span>🔒</span><input id="updPass" type="password" placeholder="輸入新的登入密碼"/></div>
+      </label>
+      <label class="fieldBlock">
+        <span class="fieldBlockLabel">確認新密碼</span>
+        <span class="fieldBlockHint">請再次輸入相同密碼</span>
+        <div class="inputWrap"><span>🔒</span><input id="updPass2" type="password" placeholder="再次輸入新密碼"/></div>
+      </label>
       <div class="updateActions">
-        <button class="btnGhost" type="button" onclick="fillProfileForm()">帶入更新資料</button>
-        <button class="btnUpdate" onclick="saveProfile()">💾 儲存更新</button>
+        <button class="btnGhost" type="button" onclick="fillProfileForm()">帶入示範資料</button>
+        <button class="btnUpdate" onclick="saveProfile()">儲存會員資料</button>
       </div>
     </div>
   </div>

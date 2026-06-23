@@ -110,6 +110,18 @@ app.post('/api/login', async (req, res) => {
   } catch(e){ res.status(500).json({ error:e.message }); }
 });
 
+app.post('/api/members/:uid/reward', async (req, res) => {
+  try {
+    const { uid } = req.params;
+    const xp = Number(req.body?.xp || 0);
+    const coin = Number(req.body?.coin || 0);
+    if (!uid) return res.status(400).json({ ok:false, error:'缺少會員編號' });
+    if (xp === 0 && coin === 0) return res.status(400).json({ ok:false, error:'沒有可發送的獎勵' });
+    await q('UPDATE members SET xp = xp + ?, coin = coin + ? WHERE uid = ?', [xp, coin, uid]);
+    res.json({ ok:true, xp, coin });
+  } catch(e){ res.status(500).json({ ok:false, error:e.message }); }
+});
+
 // 註冊 (10%)
 app.post('/api/register', async (req, res) => {
   try {

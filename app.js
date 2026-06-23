@@ -56,6 +56,90 @@ function isRegisteredForEvent(eid){
   return registrationRows.some(row=>row.eid===eid && row.uid===currentUser?.uid);
 }
 
+function getDailyTaskStorageKey(){
+  return currentUser?.uid ? `kq-daily-${currentUser.uid}-${todayIso()}` : '';
+}
+
+function loadDailyTaskState(){
+  const key=getDailyTaskStorageKey();
+  if(!key){
+    dailyTaskState={ steps: 0, locationChecked: false, claimed: {} };
+    return dailyTaskState;
+  }
+  try{
+    const raw=localStorage.getItem(key);
+    const parsed=raw ? JSON.parse(raw) : {};
+    dailyTaskState={
+      steps:Number(parsed.steps||0),
+      locationChecked:Boolean(parsed.locationChecked),
+      claimed:parsed.claimed && typeof parsed.claimed==='object' ? parsed.claimed : {},
+    };
+  }catch{
+    dailyTaskState={ steps: 0, locationChecked: false, claimed: {} };
+  }
+  return dailyTaskState;
+}
+
+function saveDailyTaskState(){
+  const key=getDailyTaskStorageKey();
+  if(!key) return;
+  localStorage.setItem(key, JSON.stringify(dailyTaskState));
+}
+
+function getTodayMoodCheckin(){
+  return checkinHistory.mood.find(item=>item.date===todayIso());
+}
+
+function getDailyTasks(){
+  const waterMl=waterCount*250;
+  return [
+    {
+      id:'walk3000',
+      title:'步行 3000 步',
+      desc:'手動輸入今天累積的步數，達成後可領取日常獎勵。',
+      progress:Math.min(Number(dailyTaskState.steps||0), 3000),
+      goal:3000,
+      unit:'步',
+      xp:35,
+      coin:15,
+      action:'steps',
+    },
+    {
+      id:'water2000',
+      title:'喝水 2000 ml',
+      desc:'每喝一杯 250 ml 會同步更新進度，養成健康日常。',
+      progress:Math.min(waterMl, 2000),
+      goal:2000,
+      unit:'ml',
+      xp:28,
+      coin:10,
+      action:'water',
+    },
+    {
+      id:'moodCheckin',
+      title:'完成今日心情打卡',
+      desc:'記錄今天的心情狀態，讓系統留下生活軌跡。',
+      progress:getTodayMoodCheckin() ? 1 : 0,
+      goal:1,
+      unit:'次',
+      xp:18,
+      coin:8,
+      action:'mood',
+    },
+    {
+      id:'mapCheckin',
+      title:'完成地圖打卡',
+      desc:'按一下定位打卡，模擬今天有進入系統完成生活任務。',
+      progress:dailyTaskState.locationChecked ? 1 : 0,
+      goal:1,
+      unit:'次',
+      xp:22,
+      coin:12,
+      action:'location',
+    },
+  ];
+}
+
 /* ═══════════════════ 常數 ═══════════════════ */
 const FCU_POS   = [24.1798, 120.6438];
 const SDG_COLOR = {3:'#4c9f38',4:'#c5192d',11:'#fd9d24',12:'#bf8b2e',13:'#3f7e44',14:'#0a97d9'};
@@ -84,6 +168,7 @@ let registrationRows = [];
 let archiveData   = null;
 let checkinHistory = { water: [], mood: [] };
 let selectedCommentImage = '';
+let dailyTaskState = { steps: 0, locationChecked: false, claimed: {} };
 
 /* ═══════════════════ 登入背景動畫 ═══════════════════ */
 (function initLoginCanvas(){
@@ -233,7 +318,29 @@ function nextEventId(){
 }
 
 function todayIso(){
-  return new Date().toISOString().slice(0,10);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const map = Object.fromEntries(parts.filter(part=>part.type !== 'literal').map(part=>[part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
+function normalizeDateKey(value){
+  if(!value) return '';
+  if(typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed=parseDateValue(value);
+  if(!parsed) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(parsed);
+  const map = Object.fromEntries(parts.filter(part=>part.type !== 'literal').map(part=>[part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}`;
 }
 
 /* ═══════════════════ 載入事件（DB 優先）═══════════════════ */
@@ -371,11 +478,31 @@ function closeMemberDetailModal(){
   document.getElementById('memberDetailModal')?.classList.add('hidden');
 }
 
+function openMemberDetailModal(uid){
+  const modal=document.getElementById('memberDetailModal');
+  const body=document.getElementById('memberDetailBody');
+  const member=getMemberProfile(uid);
+  if(!modal||!body||!member) return;
+  body.innerHTML=[
+    ['姓名', member.name||member.member_name||'未填寫'],
+    ['Email', member.email||'未填寫'],
+    ['手機', member.phone||'未填寫'],
+    ['城市', member.city||'未填寫'],
+    ['生日', member.birthday ? String(member.birthday).slice(0,10) : '未填寫'],
+    ['緊急聯絡人', member.emergency_contact||'未填寫'],
+    ['XP', Number(member.xp||0).toLocaleString()],
+    ['金幣', Number(member.coin||0).toLocaleString()],
+  ].map(([label,value])=>`<div class="memberDetailRow"><div class="memberDetailLabel">${label}</div><div class="memberDetailValue">${value}</div></div>`).join('')
+  + `<div class="memberDetailRow block"><div class="memberDetailLabel">個人簡介</div><div class="memberDetailValue">${member.bio||'未填寫'}</div></div>`;
+  modal.classList.remove('hidden');
+}
+
 /* ═══════════════════ 進入各介面 ═══════════════════ */
 async function enterUser(){
   hideAllApps();
   document.getElementById('userApp').classList.remove('hidden');
   await Promise.all([loadEvents(), loadRegistrations()]);
+  loadDailyTaskState();
   populateSearchFilters();
   refreshHud();
   if(!map) setTimeout(initMap,100);
@@ -505,6 +632,12 @@ function switchDock(name,btn){
   if(openPanelId===pid){ closeAllPanels(false); return; }
   closeAllPanels(false);
   setTimeout(()=>{ document.getElementById(pid).classList.add('open'); openPanelId=pid; },40);
+}
+
+function goToCheckinPanel(){
+  const btn=document.querySelector('.dockBtn[data-panel="checkin"]');
+  if(!btn) return;
+  switchDock('checkin', btn);
 }
 
 function closeAllPanels(resetDock){
@@ -749,6 +882,7 @@ function populateSearchFilters(){
 
 /* ═══════════════════ 任務列表 ═══════════════════ */
 function renderQuestList(){
+  renderDailyTaskBoard();
   document.getElementById('questList').innerHTML=activeEvents.map((ev,i)=>{
     const col=ev.sdg_color||SDG_COLOR[ev.sdg_id]||'#7c3aed';
     const ico=ICON_MAP[ev.icon]||ev.icon||'🌟';
@@ -767,6 +901,71 @@ function renderQuestList(){
   }).join('');
 }
 
+function renderDailyTaskBoard(){
+  const board=document.getElementById('dailyTaskBoard');
+  if(!board) return;
+  const tasks=getDailyTasks();
+  board.innerHTML=`
+    <div class="dailyTaskWrap">
+      <div class="dailyTaskHeader">
+        <div>
+          <div class="dailyTaskTitle">今日日常任務</div>
+          <div class="dailyTaskSub">除了報名活動，會員每天也能靠走路、喝水與打卡累積 XP 和鑽石，提升整體互動感。</div>
+        </div>
+      </div>
+      <div class="dailyTaskGrid">
+        ${tasks.map(task=>{
+          const completed=task.progress>=task.goal;
+          const claimed=Boolean(dailyTaskState.claimed?.[task.id]);
+          const pct=Math.min(100, Math.round((task.progress/task.goal)*100));
+          return `<div class="dailyTaskCard ${completed ? 'done' : ''}">
+            <div class="dailyTaskRow">
+              <div>
+                <div class="dailyTaskName">${task.title}</div>
+                <div class="dailyTaskDesc">${task.desc}</div>
+              </div>
+              <div class="dailyTaskReward">⭐ ${task.xp} XP · 💎 ${task.coin}</div>
+            </div>
+            <div class="dailyTaskProgress">
+              <div class="dailyTaskTrack"><div class="dailyTaskFill" style="width:${pct}%"></div></div>
+              <div class="dailyTaskMeta">
+                <span>進度 ${Math.min(task.progress, task.goal)} / ${task.goal} ${task.unit}</span>
+                <span>${claimed ? '已領取' : completed ? '可領獎勵' : '進行中'}</span>
+              </div>
+            </div>
+            <div class="dailyTaskActions">${renderDailyTaskActions(task, completed, claimed)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function renderDailyTaskActions(task, completed, claimed){
+  if(task.action==='steps'){
+    return `
+      <input id="dailyStepInput" class="dailyTaskInput" type="number" min="0" step="100" placeholder="輸入今日步數，例如 3200" value="${Number(dailyTaskState.steps||0) || ''}"/>
+      <button class="dailyTaskBtn secondary" type="button" onclick="updateDailySteps()">更新步數</button>
+      <button class="dailyTaskBtn claim" type="button" onclick="claimDailyTask('${task.id}')" ${(!completed || claimed) ? 'disabled' : ''}>${claimed ? '已領取' : '領取獎勵'}</button>
+    `;
+  }
+  if(task.action==='location'){
+    return `
+      <button class="dailyTaskBtn secondary" type="button" onclick="completeDailyLocationCheckin()" ${completed ? 'disabled' : ''}>${completed ? '已完成打卡' : '現在打卡'}</button>
+      <button class="dailyTaskBtn claim" type="button" onclick="claimDailyTask('${task.id}')" ${(!completed || claimed) ? 'disabled' : ''}>${claimed ? '已領取' : '領取獎勵'}</button>
+    `;
+  }
+  if(task.action==='water' || task.action==='mood'){
+    return `
+      <button class="dailyTaskBtn secondary" type="button" onclick="goToCheckinPanel()">前往打卡</button>
+      <button class="dailyTaskBtn claim" type="button" onclick="claimDailyTask('${task.id}')" ${(!completed || claimed) ? 'disabled' : ''}>${claimed ? '已領取' : '領取獎勵'}</button>
+    `;
+  }
+  return `
+    <button class="dailyTaskBtn secondary" type="button" onclick="switchDock('${task.action==='water' ? 'checkin' : 'checkin'}', document.querySelector('.dockBtn[data-panel=\"checkin\"]'))">前往打卡</button>
+    <button class="dailyTaskBtn claim" type="button" onclick="claimDailyTask('${task.id}')" ${(!completed || claimed) ? 'disabled' : ''}>${claimed ? '已領取' : '領取獎勵'}</button>
+  `;
+}
+
 /* ═══════════════════ 喝水打卡 ═══════════════════ */
 let waterCount=0;
 const WATER_GOAL=8;
@@ -775,6 +974,7 @@ async function initCheckinPanel(){
   await loadCheckinHistory();
   initWaterUI();
   initMoodUI();
+  renderDailyTaskBoard();
 }
 
 async function loadCheckinHistory(){
@@ -786,8 +986,12 @@ async function loadCheckinHistory(){
   }
   const data = await api('GET', `/api/checkin/history/${currentUser.uid}`);
   checkinHistory = {
-    water: data?.ok && Array.isArray(data.water) ? data.water : [],
-    mood: data?.ok && Array.isArray(data.mood) ? data.mood : [],
+    water: data?.ok && Array.isArray(data.water)
+      ? data.water.map(item=>({ ...item, date: normalizeDateKey(item.date) }))
+      : [],
+    mood: data?.ok && Array.isArray(data.mood)
+      ? data.mood.map(item=>({ ...item, date: normalizeDateKey(item.date) }))
+      : [],
   };
   renderWaterHistory();
   renderMoodHistory();
@@ -811,6 +1015,7 @@ async function addWater(){
   }
   if(waterCount===WATER_GOAL) showToast('🏆 恭喜！今日喝水目標達成！','success');
   else showToast(`💧 已喝 ${waterCount} 杯（${waterCount*250} ml）`,'success');
+  renderDailyTaskBoard();
 }
 
 function renderWater(){
@@ -864,6 +1069,44 @@ async function setMood(emoji,label){
     await loadCheckinHistory();
   }
   showToast(`${emoji} 心情打卡成功！今日感覺「${label}」`,'success');
+  renderDailyTaskBoard();
+}
+
+function updateDailySteps(){
+  const input=document.getElementById('dailyStepInput');
+  const value=Math.max(0, Number(input?.value||0));
+  dailyTaskState.steps=value;
+  saveDailyTaskState();
+  renderDailyTaskBoard();
+  showToast(`已更新今日步數：${value.toLocaleString()} 步`,'success');
+}
+
+function completeDailyLocationCheckin(){
+  dailyTaskState.locationChecked=true;
+  saveDailyTaskState();
+  locateWarrior();
+  renderDailyTaskBoard();
+  showToast('今日地圖打卡完成，可返回領取任務獎勵','success');
+}
+
+async function claimDailyTask(taskId){
+  const task=getDailyTasks().find(item=>item.id===taskId);
+  if(!task) return;
+  if(task.progress < task.goal){ showToast('任務尚未完成，還不能領取獎勵','error'); return; }
+  if(dailyTaskState.claimed?.[taskId]){ showToast('這個任務今天已經領取過了','error'); return; }
+  if(currentUser?.uid){
+    const result=await api('POST', `/api/members/${currentUser.uid}/reward`, { xp: task.xp, coin: task.coin });
+    if(!result?.ok){ showToast(result?.error||'資料庫連線失敗，無法發送獎勵','error'); return; }
+  }
+  dailyTaskState.claimed={ ...(dailyTaskState.claimed||{}), [taskId]: true };
+  saveDailyTaskState();
+  if(currentUser){
+    currentUser.xp=Number(currentUser.xp||0)+task.xp;
+    currentUser.coin=Number(currentUser.coin||0)+task.coin;
+  }
+  refreshHud();
+  renderDailyTaskBoard();
+  showToast(`完成「${task.title}」，獲得 ${task.xp} XP 與 ${task.coin} 顆鑽石！`,'success');
 }
 
 function renderMoodHistory(){
@@ -1373,6 +1616,46 @@ function fillDemoEventForm(target){
 }
 
 /* ═══════════════════ Toast ═══════════════════ */
+function fillDemoEventForm(target){
+  const templates = {
+    npo: {
+      name: '食物銀行物資發放志工招募',
+      loc: '臺中市中區繼光里綠川西街135號10樓',
+      date: '2026-09-18',
+      sdg: '2',
+      quota: '24',
+      reward: '80',
+      duration: '週五 14:00-17:00',
+      requirements: '請穿著方便活動的服裝，協助物資整理、發放與現場引導。',
+      description: '與台中市紅十字會合作辦理食物銀行物資發放服務，協助整理民生物資、核對發放名單，並陪伴有需要的家庭完成領取流程。',
+    },
+    admin: {
+      name: '食物銀行物資發放志工招募',
+      loc: '臺中市中區繼光里綠川西街135號10樓',
+      date: '2026-09-18',
+      sdg: '2',
+      quota: '24',
+      reward: '80',
+      duration: '週五 14:00-17:00',
+      requirements: '請穿著方便活動的服裝，協助物資整理、發放與現場引導。',
+      description: '與台中市紅十字會合作辦理食物銀行物資發放服務，協助整理民生物資、核對發放名單，並陪伴有需要的家庭完成領取流程。',
+    },
+  };
+  const draft = templates[target];
+  if(!draft) return;
+  const prefix = target==='npo' ? 'npo' : 'new';
+  document.getElementById(`${prefix}Ename`).value = draft.name;
+  document.getElementById(`${prefix}Eloc`).value = draft.loc;
+  document.getElementById(`${prefix}Edate`).value = draft.date;
+  document.getElementById(`${prefix}Esdg`).value = draft.sdg;
+  document.getElementById(`${prefix}Equota`).value = draft.quota;
+  document.getElementById(`${prefix}Ereward`).value = draft.reward;
+  document.getElementById(`${prefix}Eduration`).value = draft.duration;
+  document.getElementById(`${prefix}Erequirements`).value = draft.requirements;
+  document.getElementById(`${prefix}Edesc`).value = draft.description;
+  showToast('已帶入活動範例資料，可再微調後直接建立。','success');
+}
+
 (function(){
   const d=document.createElement('div'); d.id='toast';
   d.style.cssText='position:fixed;bottom:7.5rem;left:50%;transform:translateX(-50%) translateY(20px);z-index:9999;background:rgba(16,10,40,.92);border:1px solid rgba(124,58,237,.4);padding:.55rem 1.2rem;border-radius:20px;font-size:.85rem;font-weight:700;color:#e2e8f0;backdrop-filter:blur(12px);opacity:0;transition:all .35s cubic-bezier(.16,1,.3,1);pointer-events:none;white-space:nowrap;max-width:85vw;text-align:center;';
